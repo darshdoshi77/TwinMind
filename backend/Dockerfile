@@ -22,6 +22,7 @@ COPY backend/ .
 EXPOSE 8000
 
 # Railway provides PORT as environment variable
-# Use shell form to properly expand PORT variable
-CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
+# Set default port, Railway will override with PORT env var
+ENV PORT=8000
+CMD uvicorn app.main:app --host 0.0.0.0 --port $PORT
 
