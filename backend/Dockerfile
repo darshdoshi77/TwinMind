@@ -6,8 +6,8 @@ WORKDIR /app
 RUN apt-get update -qq
 RUN DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends gcc python3-dev
 
-# Copy requirements and install Python packages
-COPY requirements.txt .
+# Copy requirements from backend directory and install Python packages
+COPY backend/requirements.txt .
 RUN pip install --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
 
@@ -16,8 +16,8 @@ RUN apt-get remove -y gcc python3-dev
 RUN apt-get autoremove -y
 RUN rm -rf /var/lib/apt/lists/*
 
-# Copy application code
-COPY . .
+# Copy application code from backend directory
+COPY backend/ .
 
 EXPOSE 8000
 
