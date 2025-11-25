@@ -37,8 +37,13 @@ class StorageService:
         """Ensure the bucket exists (for S3)."""
         try:
             self.s3_client.head_bucket(Bucket=self.bucket_name)
-        except:
-            self.s3_client.create_bucket(Bucket=self.bucket_name)
+        except Exception as e:
+            # Log error but don't fail - bucket might not exist yet or permissions issue
+            # Will create on first use
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Could not access bucket {self.bucket_name}: {e}. Will attempt on first use.")
+            # Don't fail - will handle errors when actually using storage
     
     async def save_file(
         self,
