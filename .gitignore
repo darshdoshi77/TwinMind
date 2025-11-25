@@ -48,7 +48,7 @@ yarn-error.log*
 .env.*.local
 
 # Docker
-.dockerignore
+# .dockerignore (should be tracked in git)
 
 # Logs
 *.log
