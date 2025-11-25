@@ -99,50 +99,66 @@ async def query_stream(
     db: AsyncSession = Depends(get_db)
 ):
     """Stream query response."""
-    # Retrieve relevant chunks
-    chunks = await retrieval_service.retrieve(
-        query=request.query,
-        user_id=request.user_id,
-        db=db,
-        top_k=request.max_results
-    )
-    
-    if not chunks:
-        async def empty_stream():
-            message = json.dumps({'content': "I couldn't find any relevant information."})
-            yield f"data: {message}\n\n"
-        return StreamingResponse(empty_stream(), media_type="text/event-stream")
-    
-    # Format chunks for LLM
-    context_chunks = [
-        {
-            "text": chunk["text"],
-            "source_name": chunk["source"]["name"],
-            "source_type": chunk["source"]["type"]
-        }
-        for chunk in chunks
-    ]
-    
-    # Stream answer
+    # Stream answer with error handling
     async def stream_generator():
         try:
-            # generate_answer with stream=True returns an async generator function
-            # Call it to get the async generator
-            stream_gen_func = llm_service.generate_answer(
-                query=request.query,
-                context_chunks=context_chunks,
-                stream=True
-            )
-            # This is a coroutine that returns an async generator, so await it
-            stream_gen = await stream_gen_func
-            # Now iterate over the async generator
-            async for token in stream_gen:
-                yield f"data: {json.dumps({'content': token})}\n\n"
-            yield f"data: {json.dumps({'done': True, 'sources': [{'name': c['source']['name']} for c in chunks]})}\n\n"
+            # Retrieve relevant chunks (with error handling)
+            try:
+                chunks = await retrieval_service.retrieve(
+                    query=request.query,
+                    user_id=request.user_id,
+                    db=db,
+                    top_k=request.max_results
+                )
+            except Exception as retrieve_error:
+                import traceback
+                error_msg = f"Error retrieving information: {str(retrieve_error)}"
+                print(f"Retrieval error: {error_msg}")
+                print(traceback.format_exc())
+                yield f"data: {json.dumps({'error': error_msg})}\n\n"
+                return
+            
+            if not chunks:
+                message = json.dumps({'content': "I couldn't find any relevant information in your knowledge base to answer this question."})
+                yield f"data: {message}\n\n"
+                yield f"data: {json.dumps({'done': True, 'sources': []})}\n\n"
+                return
+            
+            # Format chunks for LLM
+            context_chunks = [
+                {
+                    "text": chunk["text"],
+                    "source_name": chunk["source"]["name"],
+                    "source_type": chunk["source"]["type"]
+                }
+                for chunk in chunks
+            ]
+            
+            # Generate answer with streaming
+            try:
+                # generate_answer with stream=True returns an async generator function
+                # Call it to get the async generator
+                stream_gen_func = llm_service.generate_answer(
+                    query=request.query,
+                    context_chunks=context_chunks,
+                    stream=True
+                )
+                # This is a coroutine that returns an async generator, so await it
+                stream_gen = await stream_gen_func
+                # Now iterate over the async generator
+                async for token in stream_gen:
+                    yield f"data: {json.dumps({'content': token})}\n\n"
+                yield f"data: {json.dumps({'done': True, 'sources': [{'name': c['source']['name']} for c in chunks]})}\n\n"
+            except Exception as llm_error:
+                import traceback
+                error_msg = f"Error generating answer: {str(llm_error)}"
+                print(f"LLM error: {error_msg}")
+                print(traceback.format_exc())
+                yield f"data: {json.dumps({'error': error_msg})}\n\n"
         except Exception as e:
             import traceback
-            error_msg = f"Error: {str(e)}"
-            print(f"Streaming error: {error_msg}")
+            error_msg = f"Unexpected error: {str(e)}"
+            print(f"Unexpected error: {error_msg}")
             print(traceback.format_exc())
             yield f"data: {json.dumps({'error': error_msg})}\n\n"
     

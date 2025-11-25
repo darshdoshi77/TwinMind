@@ -35,12 +35,14 @@ class RetrievalService:
         Returns list of chunks with relevance scores.
         """
         from uuid import UUID
-        # Validate user_id is a valid UUID
+        import hashlib
+        # Validate user_id is a valid UUID or convert to deterministic UUID
         try:
             user_uuid = UUID(user_id)
         except (ValueError, TypeError):
-            # Invalid UUID - return empty results
-            return []
+            # If not a valid UUID, generate a deterministic UUID from the string
+            namespace = UUID('6ba7b810-9dad-11d1-80b4-00c04fd430c8')  # DNS namespace
+            user_uuid = UUID(bytes=hashlib.md5(f"{namespace}{user_id}".encode()).digest())
         
         # Parse temporal query if present
         time_range = await self._parse_temporal_query(query)
