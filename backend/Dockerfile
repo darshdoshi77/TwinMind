@@ -1,34 +1,43 @@
-# Multi-stage build for smaller final image
+# Optimized multi-stage build
 FROM python:3.11-slim as builder
 
 WORKDIR /app
 
-# Install build dependencies
+# Install only essential build dependencies
 RUN apt-get update -qq && \
     apt-get install -y --no-install-recommends gcc python3-dev && \
     rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install dependencies
-COPY backend/requirements.txt .
+# Install Python dependencies
+COPY backend/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+    pip install --no-cache-dir --user -r requirements.txt
 
-# Production stage - minimal image
+# Production image
 FROM python:3.11-slim
 
 WORKDIR /app
 
-# Copy installed packages from builder
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
+# Copy only Python packages from builder (smaller than copying entire site-packages)
+RUN apt-get update -qq && \
+    apt-get install -y --no-install-recommends curl && \
+    rm -rf /var/lib/apt/lists/*
 
-# Copy application code
-COPY backend/ .
+# Copy user-installed packages
+COPY --from=builder /root/.local /root/.local
+
+# Make sure scripts in .local are usable
+ENV PATH=/root/.local/bin:$PATH
+
+# Copy only application code (not docs, etc)
+COPY backend/app ./app
+COPY backend/requirements.txt ./requirements.txt
 
 EXPOSE 8000
 
 ENV PORT=8000
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
 
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT}"]
+CMD uvicorn app.main:app --host 0.0.0.0 --port $PORT
 
