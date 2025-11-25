@@ -1,0 +1,12 @@
+steps:
+  # Build backend image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/twinmind-repo/backend:latest', '-f', 'backend/Dockerfile.gcp', 'backend/']
+
+  # Push backend image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/twinmind-repo/backend:latest']
+
+images:
+  - 'us-central1-docker.pkg.dev/$PROJECT_ID/twinmind-repo/backend:latest'
+

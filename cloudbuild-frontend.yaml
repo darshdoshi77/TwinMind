@@ -1,0 +1,11 @@
+steps:
+  # Build frontend image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/twinmind-repo/frontend:latest', '-f', 'frontend/Dockerfile.prod', '--build-arg', 'NEXT_PUBLIC_API_URL=https://twinmind-backend-mvw7uihrfq-uc.a.run.app', 'frontend/']
+
+  # Push frontend image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/twinmind-repo/frontend:latest']
+
+images:
+  - 'us-central1-docker.pkg.dev/$PROJECT_ID/twinmind-repo/frontend:latest'
