@@ -42,13 +42,22 @@ class WebIngestRequest(BaseModel):
 
 async def get_or_create_user(db: AsyncSession, user_id: str) -> User:
     """Get or create a user."""
+    # Convert user_id to UUID - if not valid UUID, generate one deterministically
+    try:
+        user_uuid = uuid.UUID(user_id)
+    except ValueError:
+        # If not a valid UUID, generate a deterministic UUID from the string
+        import hashlib
+        namespace = uuid.UUID('6ba7b810-9dad-11d1-80b4-00c04fd430c8')  # DNS namespace
+        user_uuid = uuid.uuid5(namespace, user_id)
+    
     result = await db.execute(
-        select(User).where(User.id == uuid.UUID(user_id))
+        select(User).where(User.id == user_uuid)
     )
     user = result.scalar_one_or_none()
     
     if not user:
-        user = User(id=uuid.UUID(user_id), email=f"{user_id}@twinmind.local")
+        user = User(id=user_uuid, email=f"{user_id}@twinmind.local")
         db.add(user)
         await db.flush()
     
